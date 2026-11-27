@@ -1551,7 +1551,6 @@ mod native_touch {
     const PT_TOUCH: u32 = 2;
     const POINTER_FLAG_INRANGE: u32 = 0x0000_0002;
     const POINTER_FLAG_INCONTACT: u32 = 0x0000_0004;
-    const POINTER_FLAG_PRIMARY: u32 = 0x0000_2000;
     const POINTER_FLAG_CANCELED: u32 = 0x0000_8000;
     const POINTER_FLAG_DOWN: u32 = 0x0001_0000;
     const POINTER_FLAG_UPDATE: u32 = 0x0002_0000;
@@ -1649,7 +1648,6 @@ mod native_touch {
         initialized: bool,
         // contact id -> last position, for contacts currently touching
         active: BTreeMap<u32, (i32, i32)>,
-        primary: Option<u32>,
         last_peer_frame: Option<Instant>,
     }
 
@@ -1710,12 +1708,9 @@ mod native_touch {
             true
         }
 
+        // POINTER_FLAG_PRIMARY must not be set: Windows assigns the primary
+        // contact itself and rejects injected frames carrying it (error 87).
         fn info(&self, id: u32, x: i32, y: i32, flags: u32) -> PointerTouchInfo {
-            let flags = if self.primary == Some(id) {
-                flags | POINTER_FLAG_PRIMARY
-            } else {
-                flags
-            };
             PointerTouchInfo {
                 pointer_info: PointerInfo {
                     pointer_type: PT_TOUCH,
@@ -1757,7 +1752,6 @@ mod native_touch {
             let mut downs = Vec::new();
             let mut ups = Vec::new();
             let mut moves = Vec::new();
-            let mut new_primary = None;
             for &(id, x, y, state) in frame {
                 if !seen.insert(id) {
                     continue;
@@ -1769,9 +1763,6 @@ mod native_touch {
                         moves.push((id, x, y));
                     }
                     STATE_DOWN => {
-                        if self.active.is_empty() && downs.is_empty() {
-                            new_primary = Some(id);
-                        }
                         infos.push((
                             id,
                             x,
@@ -1804,9 +1795,6 @@ mod native_touch {
             if infos.is_empty() {
                 return;
             }
-            if new_primary.is_some() {
-                self.primary = new_primary;
-            }
             let infos: Vec<_> = infos
                 .into_iter()
                 .map(|(id, x, y, flags)| self.info(id, x, y, flags))
@@ -1819,12 +1807,6 @@ mod native_touch {
             }
             for id in ups {
                 self.active.remove(&id);
-                if self.primary == Some(id) {
-                    self.primary = None;
-                }
-            }
-            if self.active.is_empty() {
-                self.primary = None;
             }
         }
 
@@ -1851,7 +1833,6 @@ mod native_touch {
                 unsafe { InjectTouchInput(infos.len() as u32, infos.as_ptr()) };
             }
             self.active.clear();
-            self.primary = None;
         }
 
         fn inject(&mut self, infos: &[PointerTouchInfo]) -> bool {
@@ -1864,7 +1845,6 @@ mod native_touch {
                 );
                 // The system no longer agrees with our view of the contacts; start over.
                 self.active.clear();
-                self.primary = None;
                 return false;
             }
             true
