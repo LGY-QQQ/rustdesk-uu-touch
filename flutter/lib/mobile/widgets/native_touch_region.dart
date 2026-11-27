@@ -93,6 +93,7 @@ class _NativeTouchRegionState extends State<NativeTouchRegion> {
       input.sendMouse('up', MouseButtons.left);
     }
     _mousePointer = null;
+    ffi.cursorModel.touchFocus = null;
     if (_pos.isNotEmpty) {
       _send({for (final id in _pos.keys) id: _stateCancel});
       _pos.clear();
@@ -240,6 +241,10 @@ class _NativeTouchRegionState extends State<NativeTouchRegion> {
     _pos.remove(c.id);
     _stopHeartbeatIfIdle();
     final now = DateTime.now();
+    if (state == _stateUp && sent != null && !c.moved && !c.hadCompany) {
+      // Kept on screen when the soft keyboard opens.
+      ffi.cursorModel.touchFocus = sent;
+    }
     if (state == _stateUp &&
         sent != null &&
         !c.moved &&

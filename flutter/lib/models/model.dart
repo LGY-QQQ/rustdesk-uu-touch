@@ -2801,6 +2801,12 @@ class CanvasModel with ChangeNotifier {
         Timer(Duration(milliseconds: 100), () async {
       updateSize();
       _resetCanvasOffset(getDisplayWidth(), getDisplayHeight());
+      // Touch-screen mode does not move the cursor, so center on the last
+      // tapped point (usually the text field) instead.
+      final focus = parent.target?.cursorModel.touchFocus;
+      if (focus != null) {
+        _moveToCenterCursor(target: focus);
+      }
       notifyListeners();
     });
   }
@@ -2832,7 +2838,8 @@ class CanvasModel with ChangeNotifier {
 
   // mobile only
   // Move the canvas to make the cursor visible(center) on the screen.
-  void _moveToCenterCursor() {
+  // [target]: remote position to center instead of the cursor.
+  void _moveToCenterCursor({Offset? target}) {
     Rect? imageRect = parent.target?.ffiModel.rect;
     if (imageRect == null) {
       // unreachable
@@ -2842,9 +2849,11 @@ class CanvasModel with ChangeNotifier {
     final minX = _size.width + (imageRect.left - imageRect.right) * _scale;
     final maxY = 0.0;
     final minY = _size.height + (imageRect.top - imageRect.bottom) * _scale;
-    Offset offsetToCenter =
-        parent.target?.cursorModel.getCanvasOffsetToCenterCursor() ??
-            Offset.zero;
+    final cursorModel = parent.target?.cursorModel;
+    Offset offsetToCenter = (target != null
+            ? cursorModel?.getCanvasOffsetToCenter(target)
+            : cursorModel?.getCanvasOffsetToCenterCursor()) ??
+        Offset.zero;
     if (minX < 0) {
       _x = min(max(offsetToCenter.dx, minX), maxX);
     } else {
@@ -3248,19 +3257,27 @@ class CursorModel with ChangeNotifier {
     return Rect.fromLTWH(x0, y0, size.width / scale, size.height / scale);
   }
 
-  Offset getCanvasOffsetToCenterCursor() {
-    // Cursor should be at the center of the visible rect.
-    // _x = rect.left + rect.width / 2
-    // _y = rect.right + rect.height / 2
+  Offset getCanvasOffsetToCenterCursor() => getCanvasOffsetToCenter(offset);
+
+  /// Canvas offset that puts remote position [p] at the center of the
+  /// visible rect.
+  Offset getCanvasOffsetToCenter(Offset p) {
+    // p should be at the center of the visible rect.
+    // p.dx = rect.left + rect.width / 2
+    // p.dy = rect.right + rect.height / 2
     // See `getVisibleRect()`
-    // _x = _displayOriginX - xoffset / scale + size.width / scale * 0.5;
-    // _y = _displayOriginY - yoffset / scale + size.height / scale * 0.5;
+    // p.dx = _displayOriginX - xoffset / scale + size.width / scale * 0.5;
+    // p.dy = _displayOriginY - yoffset / scale + size.height / scale * 0.5;
     final size = parent.target?.canvasModel.getSize() ??
         MediaQueryData.fromView(ui.window).size;
-    final xoffset = (_displayOriginX - _x) * scale + size.width * 0.5;
-    final yoffset = (_displayOriginY - _y) * scale + size.height * 0.5;
+    final xoffset = (_displayOriginX - p.dx) * scale + size.width * 0.5;
+    final yoffset = (_displayOriginY - p.dy) * scale + size.height * 0.5;
     return Offset(xoffset, yoffset);
   }
+
+  /// Touch-screen mode: remote position of the last tap, centered when the
+  /// soft keyboard opens.
+  Offset? touchFocus;
 
   get scale => parent.target?.canvasModel.scale ?? 1.0;
 
