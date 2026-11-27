@@ -1529,6 +1529,7 @@ pub fn handle_mouse_show_cursor_(evt: &MouseEvent, conn: i32, username: String, 
 #[cfg(windows)]
 mod native_touch {
     use base::message_proto::TouchContacts;
+    use hbb_common::log;
     use std::{
         collections::{BTreeMap, HashSet},
         ffi::c_void,
