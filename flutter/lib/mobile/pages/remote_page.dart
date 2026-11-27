@@ -793,6 +793,36 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                       onChanged: handleSoftKeyboardInput,
                     ).workaroundFreezeLinuxMint(),
             ),
+            // The soft keyboard types into the hidden field above, so text
+            // still being composed (e.g. pinyin) is shown here until it is
+            // committed and sent.
+            if (_showEdit)
+              Positioned(
+                left: 8,
+                bottom: 8,
+                child: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _textController,
+                  builder: (context, v, _) {
+                    final composing = v.isComposingRangeValid
+                        ? v.composing.textInside(v.text)
+                        : '';
+                    if (composing.isEmpty) return const SizedBox.shrink();
+                    return IgnorePointer(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xDD000000),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(composing,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 18)),
+                      ),
+                    );
+                  },
+                ),
+              ),
           ];
           if (showCursorPaint) {
             paints.add(CursorPaint(widget.id));
