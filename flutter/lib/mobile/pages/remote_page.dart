@@ -1065,8 +1065,9 @@ class KeyHelpTools extends StatefulWidget {
   // Shown from the bottom bar without the soft keyboard.
   final bool showKeys;
 
-  /// need to show by external request, etc [keyboardIsVisible] or [changeTouchMode]
-  bool get requestShow => keyboardIsVisible || showGestureHelp || showKeys;
+  /// need to show by external request, etc [showKeys] or [changeTouchMode].
+  /// Opening the soft keyboard no longer shows the bar by itself.
+  bool get requestShow => showGestureHelp || showKeys;
 
   KeyHelpTools(
       {required this.keyboardIsVisible,

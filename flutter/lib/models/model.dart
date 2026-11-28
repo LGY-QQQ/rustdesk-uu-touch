@@ -2797,8 +2797,10 @@ class CanvasModel with ChangeNotifier {
 
   void mobileFocusCanvasCursor() {
     _timerMobileFocusCanvasCursor?.cancel();
+    // Long enough for the soft keyboard to finish sliding in, so the
+    // canvas size below already excludes it.
     _timerMobileFocusCanvasCursor =
-        Timer(Duration(milliseconds: 100), () async {
+        Timer(Duration(milliseconds: 450), () async {
       updateSize();
       _resetCanvasOffset(getDisplayWidth(), getDisplayHeight());
       // Touch-screen mode does not move the cursor, so center on the last
