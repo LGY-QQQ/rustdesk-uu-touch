@@ -94,6 +94,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
   Timer? _timer;
   bool _showBar = !isWebDesktop;
   bool _showGestureHelp = false;
+  bool _showKeyBar = false;
   // Touch-screen mode: fingers are sent to a Windows peer as native touch.
   bool _nativeTouch =
       bind.mainGetLocalOption(key: _kOptionNativeTouch) != 'N';
@@ -660,6 +661,13 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                                   color: Colors.white,
                                   icon: Icon(Icons.keyboard),
                                   onPressed: openKeyboard),
+                              // Shortcut bar without the soft keyboard.
+                              IconButton(
+                                color: Colors.white,
+                                icon: Icon(Icons.keyboard_command_key),
+                                onPressed: () => setState(
+                                    () => _showKeyBar = !_showKeyBar),
+                              ),
                               if (_nativeTouchSupported)
                                 IconButton(
                                   color: Colors.white,
@@ -761,7 +769,8 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
               return KeyHelpTools(
                   keyboardIsVisible: keyboardVisibilityController.isVisible &&
                       (_showEdit || chatKeyboardRequested),
-                  showGestureHelp: _showGestureHelp);
+                  showGestureHelp: _showGestureHelp,
+                  showKeys: _showKeyBar);
             }),
             SizedBox(
               width: 0,
@@ -1053,12 +1062,16 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
 class KeyHelpTools extends StatefulWidget {
   final bool keyboardIsVisible;
   final bool showGestureHelp;
+  // Shown from the bottom bar without the soft keyboard.
+  final bool showKeys;
 
   /// need to show by external request, etc [keyboardIsVisible] or [changeTouchMode]
-  bool get requestShow => keyboardIsVisible || showGestureHelp;
+  bool get requestShow => keyboardIsVisible || showGestureHelp || showKeys;
 
   KeyHelpTools(
-      {required this.keyboardIsVisible, required this.showGestureHelp});
+      {required this.keyboardIsVisible,
+      required this.showGestureHelp,
+      this.showKeys = false});
 
   @override
   State<KeyHelpTools> createState() => _KeyHelpToolsState();
@@ -1072,6 +1085,30 @@ class _KeyHelpToolsState extends State<KeyHelpTools> {
   final _key = GlobalKey();
 
   InputModel get inputModel => gFFI.inputModel;
+
+  /// Sends [key] with exactly the given modifiers, then restores the
+  /// modifier toggles.
+  void _combo(String key,
+      {bool ctrl = false,
+      bool alt = false,
+      bool shift = false,
+      bool command = false}) {
+    final old = [
+      inputModel.ctrl,
+      inputModel.alt,
+      inputModel.shift,
+      inputModel.command
+    ];
+    inputModel.ctrl = ctrl;
+    inputModel.alt = alt;
+    inputModel.shift = shift;
+    inputModel.command = command;
+    inputModel.inputKey(key);
+    inputModel.ctrl = old[0];
+    inputModel.alt = old[1];
+    inputModel.shift = old[2];
+    inputModel.command = old[3];
+  }
 
   Widget wrap(String text, void Function() onPressed,
       {bool? active, IconData? icon}) {
@@ -1242,15 +1279,26 @@ class _KeyHelpToolsState extends State<KeyHelpTools> {
       wrap('', () {
         inputModel.inputKey('VK_RIGHT');
       }, icon: Icons.keyboard_arrow_right),
-      wrap(isMac ? 'Cmd+C' : 'Ctrl+C', () {
-        sendPrompt(isMac, 'VK_C');
-      }),
-      wrap(isMac ? 'Cmd+V' : 'Ctrl+V', () {
-        sendPrompt(isMac, 'VK_V');
-      }),
-      wrap(isMac ? 'Cmd+S' : 'Ctrl+S', () {
-        sendPrompt(isMac, 'VK_S');
-      }),
+    ];
+    // Common office shortcuts, one tap each.
+    void cmd(String key, {bool shift = false}) =>
+        _combo(key, ctrl: !isMac, command: isMac, shift: shift);
+    final shortcuts = <Widget>[
+      SizedBox(width: 9999),
+      wrap('全选', () => cmd('VK_A')),
+      wrap('复制', () => cmd('VK_C')),
+      wrap('剪切', () => cmd('VK_X')),
+      wrap('粘贴', () => cmd('VK_V')),
+      wrap('撤销', () => cmd('VK_Z')),
+      wrap('重做', () => isMac ? cmd('VK_Z', shift: true) : cmd('VK_Y')),
+      wrap('保存', () => cmd('VK_S')),
+      wrap('查找', () => cmd('VK_F')),
+      if (isWin) ...[
+        wrap('截屏', () => _combo('VK_S', command: true, shift: true)),
+        wrap('切换窗口', () => _combo('VK_TAB', alt: true)),
+        wrap('显示桌面', () => _combo('VK_D', command: true)),
+        wrap('关闭窗口', () => _combo('VK_F4', alt: true)),
+      ],
     ];
     final space = size.width > 320 ? 4.0 : 2.0;
     // 500 ms is long enough for this widget to be built!
@@ -1268,6 +1316,7 @@ class _KeyHelpToolsState extends State<KeyHelpTools> {
           children: <Widget>[SizedBox(width: 9999)] +
               modifiers +
               keys +
+              shortcuts +
               (_fn ? fn : []) +
               (_more ? more : []),
         ));

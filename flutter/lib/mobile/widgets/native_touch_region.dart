@@ -106,7 +106,7 @@ class _NativeTouchRegionState extends State<NativeTouchRegion> {
       e.kind == PointerDeviceKind.touch || e.kind == PointerDeviceKind.stylus;
 
   bool _blocked(Offset local) {
-    final rect = ffi.cursorModel.keyHelpToolsRectToAdjustCanvas;
+    final rect = ffi.cursorModel.keyHelpToolsRect;
     return rect != null && rect.contains(local);
   }
 
