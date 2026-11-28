@@ -105,9 +105,13 @@ class _NativeTouchRegionState extends State<NativeTouchRegion> {
   bool _accept(PointerEvent e) =>
       e.kind == PointerDeviceKind.touch || e.kind == PointerDeviceKind.stylus;
 
-  bool _blocked(Offset local) {
-    final rect = ffi.cursorModel.keyHelpToolsRect;
-    return rect != null && rect.contains(local);
+  // [global]: pointer position on the screen. Touches on the key help bar
+  // and on its toggle button stay on the tablet.
+  bool _blocked(Offset global) {
+    final bar = ffi.cursorModel.keyHelpToolsRect;
+    if (bar != null && bar.contains(global)) return true;
+    final button = ffi.cursorModel.keyBarButtonRect;
+    return button != null && button.inflate(6).contains(global);
   }
 
   int? _freeId() {
@@ -126,7 +130,7 @@ class _NativeTouchRegionState extends State<NativeTouchRegion> {
   void _onDown(PointerDownEvent e) {
     // While a held finger drives the mouse, other fingers are ignored.
     if (_mousePointer != null) return;
-    if (!_accept(e) || _blocked(e.localPosition)) return;
+    if (!_accept(e) || _blocked(e.position)) return;
     final id = _freeId();
     if (id == null) return;
     var pos = ffi.cursorModel.remotePosForTouch(e.localPosition);

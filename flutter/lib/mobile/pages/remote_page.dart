@@ -95,6 +95,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
   bool _showBar = !isWebDesktop;
   bool _showGestureHelp = false;
   bool _showKeyBar = false;
+  final _keyBarButtonKey = GlobalKey();
   // Touch-screen mode: fingers are sent to a Windows peer as native touch.
   bool _nativeTouch =
       bind.mainGetLocalOption(key: _kOptionNativeTouch) != 'N';
@@ -661,13 +662,6 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                                   color: Colors.white,
                                   icon: Icon(Icons.keyboard),
                                   onPressed: openKeyboard),
-                              // Shortcut bar without the soft keyboard.
-                              IconButton(
-                                color: Colors.white,
-                                icon: Icon(Icons.keyboard_command_key),
-                                onPressed: () => setState(
-                                    () => _showKeyBar = !_showKeyBar),
-                              ),
                               if (_nativeTouchSupported)
                                 IconButton(
                                   color: Colors.white,
@@ -836,6 +830,42 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
           if (showCursorPaint) {
             paints.add(CursorPaint(widget.id));
           }
+          // Shortcut bar toggle at the top center, reachable while typing.
+          final showKeyBarButton =
+              !gFFI.ffiModel.viewOnly && gFFI.ffiModel.keyboard;
+          if (showKeyBarButton) {
+            paints.add(Positioned(
+              top: 4,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  key: _keyBarButtonKey,
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _showKeyBar = !_showKeyBar),
+                  child: Container(
+                    width: 44,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: _showKeyBar
+                          ? MyTheme.accent
+                          : const Color(0x99000000),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(Icons.keyboard_command_key,
+                        size: 18, color: Colors.white),
+                  ),
+                ),
+              ),
+            ));
+          }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final box = _keyBarButtonKey.currentContext?.findRenderObject();
+            gFFI.cursorModel.keyBarButtonRect =
+                showKeyBarButton && box is RenderBox && box.hasSize
+                    ? box.localToGlobal(Offset.zero) & box.size
+                    : null;
+          });
           if (_nativeTouchActive) {
             // Touch-screen mode has no virtual mouse.
           } else if (gFFI.ffiModel.touchMode) {

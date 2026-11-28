@@ -3150,6 +3150,8 @@ class CursorModel with ChangeNotifier {
       _lastKeyboardIsVisible ? _keyHelpToolsRect : null;
   // Where the key help bar is shown, with or without the soft keyboard.
   Rect? get keyHelpToolsRect => _keyHelpToolsRect;
+  // Global rect of the floating button that toggles the key help bar.
+  Rect? keyBarButtonRect;
   // The blocked rect is used to block the pointer/touch events in the remote page.
   final List<Rect> _blockedRects = [];
   // Used in shouldBlock().
